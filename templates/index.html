@@ -2,61 +2,90 @@
 <html lang="he">
 <head>
 <meta charset="UTF-8">
-<title>מערכת נוכחות</title>
+<title>מערכת עובדים</title>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;direction:rtl}
+.card{background:white;margin:10px;padding:15px;border-radius:10px}
+button{padding:6px;margin:3px}
+input,select{padding:6px}
+table{width:100%;background:white}
+td,th{padding:8px;border:1px solid #ddd}
+</style>
 </head>
 
 <body>
 
-<h2>התחברות</h2>
-<input id="u">
-<input id="p" type="password">
+<div class="card">
+<h3>התחברות</h3>
+<input id="u"><input id="p" type="password">
 <button onclick="login()">כניסה</button>
+</div>
 
-<hr>
+<div class="card">
+<h3>דשבורד</h3>
+<button onclick="dash()">רענן</button>
+<div id="dash"></div>
+</div>
 
-<h2>עובדים</h2>
-<input id="name">
-<input id="salary">
-<select id="type">
-<option>יומי</option>
-<option>שעתי</option>
-</select>
+<div class="card">
+<h3>הוספת עובד</h3>
+<input id="name"><input id="salary">
+<select id="type"><option>יומי</option><option>שעתי</option></select>
 <button onclick="add()">הוסף</button>
+</div>
 
-<br><br>
+<div class="card">
+<h3>עובדים</h3>
+<button onclick="load()">טען</button>
+<table id="t"></table>
+</div>
 
-<button onclick="load()">רענן עובדים</button>
+<div class="card">
 <button onclick="salary()">דוח שכר</button>
 <button onclick="pdf()">PDF</button>
-
-<div id="out"></div>
+<div id="s"></div>
+</div>
 
 <script>
 
-let role="";
-
 async function login(){
-const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},
+await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},
 body:JSON.stringify({user:u.value,pass:p.value})});
+alert("מחובר");
+}
 
-const d=await r.json();
-role=d.role;
-alert(role);
+async function dash(){
+let r=await fetch("/dashboard");
+dash.innerHTML=JSON.stringify(await r.json());
 }
 
 async function add(){
-await fetch("/add_emp",{method:"POST",headers:{"Content-Type":"application/json"},
+await fetch("/add",{method:"POST",headers:{"Content-Type":"application/json"},
 body:JSON.stringify({name:name.value,salary:salary.value,type:type.value})});
 }
 
 async function load(){
-const r=await fetch("/employees");
-out.innerHTML=JSON.stringify(await r.json());
+let r=await fetch("/employees");
+let d=await r.json();
+
+t.innerHTML=d.map(x=>`
+<tr>
+<td>${x[1]}</td>
+<td>${x[2]}</td>
+<td>${x[3]}</td>
+<td>
+<button onclick="fetch('/in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'${x[1]}')})">כניסה</button>
+<button onclick="fetch('/out',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'${x[1]}')})">יציאה</button>
+</td>
+</tr>
+`).join("");
 }
 
 async function salary(){
-const r=await fetch("/salary_week");
-out.innerHTML=JSON.stringify(await r.json());
+let r=await fetch("/salary");
+let d=await r.json();
+s.innerHTML=JSON.stringify(d);
 }
 
 function pdf(){

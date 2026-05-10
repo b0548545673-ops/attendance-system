@@ -1,57 +1,56 @@
-import psycopg2
-from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
-from datetime import datetime, date
 import os
+import psycopg2
+from flask import Flask, request, jsonify, render_template, session, send_file
+from datetime import datetime, date, timedelta
+from reportlab.pdfgen import canvas
+import io
 
 app = Flask(__name__)
-CORS(app)
-
-# ================= DATABASE =================
+app.secret_key = "prod-key"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def get_conn():
+def db():
     return psycopg2.connect(DATABASE_URL)
 
-# ================= INIT DB =================
+# ================= INIT =================
 
 def init_db():
-    conn = get_conn()
-    cur = conn.cursor()
+    c = db()
+    cur = c.cursor()
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS employees (
         id SERIAL PRIMARY KEY,
         name TEXT,
         salary FLOAT,
-        salary_type TEXT
+        type TEXT
     )
     """)
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS attendance (
         id SERIAL PRIMARY KEY,
-        employee_name TEXT,
-        work_date TEXT,
-        clock_in TEXT,
-        clock_out TEXT
+        name TEXT,
+        day TEXT,
+        in_time TEXT,
+        out_time TEXT
     )
     """)
 
-    conn.commit()
-    conn.close()
+    c.commit()
+    c.close()
 
 init_db()
 
 # ================= USERS =================
 
-users = {
-    "admin": {"password": "1234", "role": "admin"},
-    "worker": {"password": "1111", "role": "worker"}
+USERS = {
+    "admin": {"pass": "259165", "role": "admin"},
+    "worker": {"pass": "112233", "role": "worker"}
 }
 
-# ================= HOME =================
+# ================= UI =================
 
 @app.route("/")
 def home():
@@ -61,169 +60,204 @@ def home():
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.json
+    d = request.json
+    u = d["user"]
+    p = d["pass"]
 
-    username = data["username"]
-    password = data["password"]
+    if u in USERS and USERS[u]["pass"] == p:
+        session["role"] = USERS[u]["role"]
+        session["user"] = u
+        return jsonify({"ok": True, "role": session["role"]})
 
-    if username in users and users[username]["password"] == password:
-        return jsonify({
-            "status": "ok",
-            "role": users[username]["role"]
-        })
-
-    return jsonify({"status": "fail"})
+    return jsonify({"ok": False})
 
 # ================= EMPLOYEES =================
 
 @app.route("/employees")
 def employees():
-    conn = get_conn()
-    cur = conn.cursor()
+    c = db()
+    cur = c.cursor()
 
     cur.execute("SELECT * FROM employees")
-    rows = cur.fetchall()
+    data = cur.fetchall()
 
-    conn.close()
-    return jsonify(rows)
+    c.close()
+    return jsonify(data)
 
-# ================= ADD EMPLOYEE =================
+@app.route("/add", methods=["POST"])
+def add():
+    if session.get("role") != "admin":
+        return "no"
 
-@app.route("/add_employee", methods=["POST"])
-def add_employee():
-    data = request.json
-
-    conn = get_conn()
-    cur = conn.cursor()
+    d = request.json
+    c = db()
+    cur = c.cursor()
 
     cur.execute("""
-        INSERT INTO employees (name, salary, salary_type)
-        VALUES (%s, %s, %s)
-    """, (data["name"], data["salary"], data["salary_type"]))
+    INSERT INTO employees(name,salary,type)
+    VALUES(%s,%s,%s)
+    """, (d["name"], d["salary"], d["type"]))
 
-    conn.commit()
-    conn.close()
+    c.commit()
+    c.close()
 
-    return jsonify({"status": "ok"})
+    return jsonify({"ok": True})
 
-# ================= CLOCK IN =================
+@app.route("/delete", methods=["POST"])
+def delete():
+    if session.get("role") != "admin":
+        return "no"
 
-@app.route("/clock_in", methods=["POST"])
+    name = request.json["name"]
+
+    c = db()
+    cur = c.cursor()
+
+    cur.execute("DELETE FROM employees WHERE name=%s", (name,))
+    cur.execute("DELETE FROM attendance WHERE name=%s", (name,))
+
+    c.commit()
+    c.close()
+
+    return jsonify({"ok": True})
+
+# ================= CLOCK =================
+
+@app.route("/in", methods=["POST"])
 def clock_in():
-    data = request.json
-    name = data["name"]
+    name = request.json["name"]
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    conn = get_conn()
-    cur = conn.cursor()
+    c = db()
+    cur = c.cursor()
 
     cur.execute("""
-        INSERT INTO attendance (employee_name, work_date, clock_in, clock_out)
-        VALUES (%s, %s, %s, %s)
-    """, (name, str(date.today()), now, ""))
+    INSERT INTO attendance(name,day,in_time,out_time)
+    VALUES(%s,%s,%s,'')
+    """, (name, str(date.today()), datetime.now().isoformat()))
 
-    conn.commit()
-    conn.close()
+    c.commit()
+    c.close()
 
-    return jsonify({"status": "ok"})
+    return jsonify({"ok": True})
 
-# ================= CLOCK OUT =================
-
-@app.route("/clock_out", methods=["POST"])
+@app.route("/out", methods=["POST"])
 def clock_out():
     name = request.json["name"]
 
-    conn = get_conn()
-    cur = conn.cursor()
+    c = db()
+    cur = c.cursor()
 
     cur.execute("""
-        UPDATE attendance
-        SET clock_out=%s
-        WHERE employee_name=%s AND clock_out=''
-    """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), name))
+    UPDATE attendance
+    SET out_time=%s
+    WHERE name=%s AND out_time=''
+    """, (datetime.now().isoformat(), name))
 
-    conn.commit()
-    conn.close()
+    c.commit()
+    c.close()
 
-    return jsonify({"status": "ok"})
-
-# ================= SALARY ALL =================
-
-@app.route("/salary_all")
-def salary_all():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("SELECT * FROM employees")
-    employees = cur.fetchall()
-
-    result = []
-
-    for e in employees:
-        name = e[1]
-        rate = e[2]
-        type_ = e[3]
-
-        cur.execute("""
-            SELECT clock_in, clock_out FROM attendance
-            WHERE employee_name=%s
-        """, (name,))
-
-        records = cur.fetchall()
-
-        hours = 0
-        days = 0
-
-        for r in records:
-            if r[0] and r[1]:
-                t1 = datetime.strptime(r[0], "%Y-%m-%d %H:%M:%S")
-                t2 = datetime.strptime(r[1], "%Y-%m-%d %H:%M:%S")
-
-                hours += (t2 - t1).total_seconds() / 3600
-                days += 1
-
-        if type_ == "יומי":
-            salary = days * rate
-        else:
-            salary = hours * rate
-
-        result.append({
-            "name": name,
-            "hours": round(hours, 2),
-            "days": days,
-            "salary": round(salary, 2)
-        })
-
-    conn.close()
-    return jsonify(result)
+    return jsonify({"ok": True})
 
 # ================= DASHBOARD =================
 
 @app.route("/dashboard")
 def dashboard():
 
-    today = str(date.today())
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT COUNT(*) FROM attendance
-        WHERE work_date=%s AND clock_out=''
-    """, (today,))
-    active = cur.fetchone()[0]
+    c = db()
+    cur = c.cursor()
 
     cur.execute("SELECT COUNT(*) FROM employees")
     total = cur.fetchone()[0]
 
-    conn.close()
+    cur.execute("""
+    SELECT COUNT(*) FROM attendance
+    WHERE day=%s
+    """, (str(date.today()),))
+
+    today = cur.fetchone()[0]
+
+    c.close()
 
     return jsonify({
-        "active": active,
-        "total_employees": total
+        "employees": total,
+        "today_attendance": today
     })
+
+# ================= SALARY =================
+
+@app.route("/salary")
+def salary():
+
+    week = (date.today() - timedelta(days=7)).isoformat()
+
+    c = db()
+    cur = c.cursor()
+
+    cur.execute("SELECT * FROM employees")
+    emps = cur.fetchall()
+
+    result = []
+    total = 0
+
+    for e in emps:
+        name, rate, typ = e[1], e[2], e[3]
+
+        cur.execute("""
+        SELECT in_time,out_time FROM attendance
+        WHERE name=%s AND day>= %s
+        """, (name, week))
+
+        rows = cur.fetchall()
+
+        hours = 0
+        days = 0
+
+        for r in rows:
+            if r[0] and r[1]:
+                t1 = datetime.fromisoformat(r[0])
+                t2 = datetime.fromisoformat(r[1])
+                hours += (t2-t1).seconds/3600
+                days += 1
+
+        salary = days*rate if typ=="יומי" else hours*rate
+        total += salary
+
+        result.append({
+            "name": name,
+            "days": days,
+            "hours": round(hours,2),
+            "salary": round(salary,2)
+        })
+
+    c.close()
+
+    return jsonify({"data": result, "total": total})
+
+# ================= PDF =================
+
+@app.route("/pdf")
+def pdf():
+
+    data = salary().json
+
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer)
+
+    y = 800
+    p.drawString(100,y,"דוח שכר שבועי")
+    y -= 40
+
+    for e in data["data"]:
+        p.drawString(100,y,f"{e['name']} | ימים:{e['days']} | ₪{e['salary']}")
+        y -= 20
+
+    y -= 20
+    p.drawString(100,y,f"סהכ: {data['total']}")
+
+    p.save()
+    buffer.seek(0)
+
+    return send_file(buffer, as_attachment=True, download_name="salary.pdf")
 
 # ================= RUN =================
 
