@@ -1,19 +1,19 @@
 import os
 import psycopg2
-from flask import Flask, request, jsonify, render_template, session, redirect, send_file
+from flask import Flask, request, jsonify, render_template, session, send_file
 from datetime import datetime, date, timedelta
 from reportlab.pdfgen import canvas
 import io
 
 app = Flask(__name__)
-app.secret_key = "secure-key"
+app.secret_key = "saas-secret"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def db():
     return psycopg2.connect(DATABASE_URL)
 
-# ================= INIT =================
+# ================= INIT DB =================
 
 def init_db():
     c = db()
@@ -50,11 +50,25 @@ USERS = {
     "worker": {"pass": "112233", "role": "worker"}
 }
 
-# ================= LOGIN =================
+# ================= UI =================
 
 @app.route("/")
-def login_page():
+def home():
     return render_template("login.html")
+
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return render_template("login.html")
+    return render_template("dashboard.html")
+
+@app.route("/admin")
+def admin():
+    if session.get("role") != "admin":
+        return "אין הרשאה"
+    return render_template("admin.html")
+
+# ================= LOGIN =================
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -69,34 +83,14 @@ def login():
 
     return jsonify({"ok": False})
 
-# ================= DASHBOARD =================
-
-@app.route("/dashboard")
-def dashboard():
-    if "user" not in session:
-        return redirect("/")
-
-    return render_template("dashboard.html", user=session["user"], role=session["role"])
-
-# ================= ADMIN =================
-
-@app.route("/admin")
-def admin():
-    if session.get("role") != "admin":
-        return "אין הרשאה"
-
-    return render_template("admin.html")
-
 # ================= EMPLOYEES =================
 
 @app.route("/employees")
 def employees():
     c = db()
     cur = c.cursor()
-
     cur.execute("SELECT * FROM employees")
     data = cur.fetchall()
-
     c.close()
     return jsonify(data)
 
@@ -174,11 +168,9 @@ def clock_out():
 
     return jsonify({"ok": True})
 
-# ================= SALARY =================
+# ================= SALARY ENGINE =================
 
-@app.route("/salary")
-def salary():
-
+def calc_salary():
     week = (date.today() - timedelta(days=7)).isoformat()
 
     c = db()
@@ -222,33 +214,39 @@ def salary():
 
     c.close()
 
-    return jsonify({"data": result, "total": total})
+    return {"data": result, "total": total}
 
-# ================= PDF =================
+@app.route("/salary")
+def salary():
+    return jsonify(calc_salary())
+
+# ================= PDF (FIXED + STABLE) =================
 
 @app.route("/pdf")
 def pdf():
 
-    data = salary().json
+    data = calc_salary()
 
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
 
     y = 800
-    p.drawString(100,y,"דוח שכר שבועי")
+    p.drawString(100, y, "דוח שכר שבועי SaaS")
     y -= 30
 
     for e in data["data"]:
-        p.drawString(100,y,f"{e['name']} | ימים:{e['days']} | ₪{e['salary']}")
+        p.drawString(100, y,
+            f"{e['name']} | ימים:{e['days']} | שעות:{e['hours']} | ₪{e['salary']}"
+        )
         y -= 20
 
     y -= 20
-    p.drawString(100,y,f"סהכ: {data['total']} ₪")
+    p.drawString(100, y, f"סהכ: ₪{data['total']}")
 
     p.save()
     buffer.seek(0)
 
-    return send_file(buffer, as_attachment=True, download_name="salary.pdf")
+    return send_file(buffer, as_attachment=True, download_name="salary_report.pdf")
 
 # ================= RUN =================
 
