@@ -1,12 +1,12 @@
 import os
 import psycopg2
-from flask import Flask, request, jsonify, render_template, session, send_file
+from flask import Flask, request, jsonify, render_template, session, redirect, send_file
 from datetime import datetime, date, timedelta
 from reportlab.pdfgen import canvas
 import io
 
 app = Flask(__name__)
-app.secret_key = "prod-key"
+app.secret_key = "secure-key"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -20,7 +20,7 @@ def init_db():
     cur = c.cursor()
 
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS employees (
+    CREATE TABLE IF NOT EXISTS employees(
         id SERIAL PRIMARY KEY,
         name TEXT,
         salary FLOAT,
@@ -29,7 +29,7 @@ def init_db():
     """)
 
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS attendance (
+    CREATE TABLE IF NOT EXISTS attendance(
         id SERIAL PRIMARY KEY,
         name TEXT,
         day TEXT,
@@ -50,13 +50,11 @@ USERS = {
     "worker": {"pass": "112233", "role": "worker"}
 }
 
-# ================= UI =================
+# ================= LOGIN =================
 
 @app.route("/")
-def home():
-    return render_template("index.html")
-
-# ================= LOGIN =================
+def login_page():
+    return render_template("login.html")
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -65,11 +63,29 @@ def login():
     p = d["pass"]
 
     if u in USERS and USERS[u]["pass"] == p:
-        session["role"] = USERS[u]["role"]
         session["user"] = u
+        session["role"] = USERS[u]["role"]
         return jsonify({"ok": True, "role": session["role"]})
 
     return jsonify({"ok": False})
+
+# ================= DASHBOARD =================
+
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect("/")
+
+    return render_template("dashboard.html", user=session["user"], role=session["role"])
+
+# ================= ADMIN =================
+
+@app.route("/admin")
+def admin():
+    if session.get("role") != "admin":
+        return "אין הרשאה"
+
+    return render_template("admin.html")
 
 # ================= EMPLOYEES =================
 
@@ -158,31 +174,6 @@ def clock_out():
 
     return jsonify({"ok": True})
 
-# ================= DASHBOARD =================
-
-@app.route("/dashboard")
-def dashboard():
-
-    c = db()
-    cur = c.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM employees")
-    total = cur.fetchone()[0]
-
-    cur.execute("""
-    SELECT COUNT(*) FROM attendance
-    WHERE day=%s
-    """, (str(date.today()),))
-
-    today = cur.fetchone()[0]
-
-    c.close()
-
-    return jsonify({
-        "employees": total,
-        "today_attendance": today
-    })
-
 # ================= SALARY =================
 
 @app.route("/salary")
@@ -216,7 +207,7 @@ def salary():
             if r[0] and r[1]:
                 t1 = datetime.fromisoformat(r[0])
                 t2 = datetime.fromisoformat(r[1])
-                hours += (t2-t1).seconds/3600
+                hours += (t2 - t1).seconds / 3600
                 days += 1
 
         salary = days*rate if typ=="יומי" else hours*rate
@@ -245,14 +236,14 @@ def pdf():
 
     y = 800
     p.drawString(100,y,"דוח שכר שבועי")
-    y -= 40
+    y -= 30
 
     for e in data["data"]:
         p.drawString(100,y,f"{e['name']} | ימים:{e['days']} | ₪{e['salary']}")
         y -= 20
 
     y -= 20
-    p.drawString(100,y,f"סהכ: {data['total']}")
+    p.drawString(100,y,f"סהכ: {data['total']} ₪")
 
     p.save()
     buffer.seek(0)

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<title>דשבורד עובד</title>
+
+<style>
+body{font-family:Arial;background:#f1f5f9}
+.card{background:white;margin:10px;padding:15px;border-radius:10px}
+button{padding:8px;margin:5px}
+table{width:100%;background:white;border-collapse:collapse}
+td,th{border:1px solid #ddd;padding:8px}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+<h2>דשבורד עובד</h2>
+<button onclick="load()">רענן עובדים</button>
+</div>
+
+<div class="card">
+<table id="t"></table>
+</div>
+
+<script>
+
+async function load(){
+let r=await fetch("/employees");
+let d=await r.json();
+
+t.innerHTML = `
+<tr>
+<th>שם</th><th>שכר</th><th>סוג</th><th>פעולות</th>
+</tr>
+` + d.map(x=>`
+<tr>
+<td>${x[1]}</td>
+<td>${x[2]}</td>
+<td>${x[3]}</td>
+<td>
+<button onclick="inTime('${x[1]}')">כניסה</button>
+<button onclick="outTime('${x[1]}')">יציאה</button>
+</td>
+</tr>
+`).join("");
+}
+
+async function inTime(name){
+await fetch("/in",{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({name})});
+alert("נכנסת");
+}
+
+async function outTime(name){
+await fetch("/out",{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({name})});
+alert("יציאה נרשמה");
+}
+
+load();
+</script>
+
+</body>
+</html>
