@@ -1,43 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="he">
 <head>
     <meta charset="UTF-8">
     <title>מערכת נוכחות</title>
+
     <style>
-        body { font-family: Arial; direction: rtl; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
-        th { background: #f0f0f0; }
-        button { margin: 3px; padding: 5px 10px; cursor: pointer; }
+        body {
+            font-family: Arial;
+            direction: rtl;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .box {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+        }
+
+        input, button, select {
+            padding: 8px;
+            margin: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background: #eee;
+        }
     </style>
 </head>
+
 <body>
 
 <h1>מערכת נוכחות בענן</h1>
 
-<input id="name" placeholder="שם עובד">
-<input id="salary" placeholder="שכר">
-<select id="type">
-    <option>יומי</option>
-    <option>שעתי</option>
-</select>
+<!-- ================= LOGIN ================= -->
+<div class="box">
+    <h2>התחברות</h2>
 
-<button onclick="addEmployee()">הוסף עובד</button>
-<button onclick="loadEmployees()">רענן טבלה</button>
+    <input id="user" placeholder="שם משתמש">
+    <input id="pass" type="password" placeholder="סיסמה">
 
-<table>
-    <thead>
+    <button onclick="login()">כניסה</button>
+</div>
+
+<!-- ================= ADD EMPLOYEE ================= -->
+<div class="box">
+    <h2>הוספת עובד</h2>
+
+    <input id="name" placeholder="שם עובד">
+    <input id="salary" placeholder="שכר">
+
+    <select id="type">
+        <option value="יומי">יומי</option>
+        <option value="שעתי">שעתי</option>
+    </select>
+
+    <button onclick="addEmployee()">הוסף</button>
+</div>
+
+<!-- ================= EMPLOYEES TABLE ================= -->
+<div class="box">
+    <h2>עובדים</h2>
+
+    <button onclick="loadEmployees()">רענן טבלה</button>
+
+    <table>
+        <thead>
         <tr>
             <th>שם</th>
             <th>שכר</th>
             <th>סוג</th>
             <th>פעולות</th>
         </tr>
-    </thead>
-    <tbody id="list"></tbody>
-</table>
+        </thead>
+
+        <tbody id="list"></tbody>
+    </table>
+</div>
 
 <script>
+
+async function login() {
+    const res = await fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            username: document.getElementById("user").value,
+            password: document.getElementById("pass").value
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.status === "ok") {
+        alert("התחברת בהצלחה");
+    } else {
+        alert("שם משתמש או סיסמה שגויים");
+    }
+}
+
 async function addEmployee() {
     await fetch("/add_employee", {
         method: "POST",
@@ -68,7 +142,8 @@ async function loadEmployees() {
                 <button onclick="clockIn('${e[1]}')">כניסה</button>
                 <button onclick="clockOut('${e[1]}')">יציאה</button>
             </td>
-        </tr>`;
+        </tr>
+        `;
     });
 
     document.getElementById("list").innerHTML = html;
@@ -91,6 +166,7 @@ async function clockOut(name) {
 }
 
 loadEmployees();
+
 </script>
 
 </body>
