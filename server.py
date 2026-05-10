@@ -1,15 +1,13 @@
 import psycopg2
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from datetime import datetime, date
-from flask import render_template
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 # ================= DATABASE =================
-
-import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -46,11 +44,35 @@ def init_db():
 
 init_db()
 
+# ================= USERS =================
+
+users = {
+    "admin": {"password": "1234", "role": "admin"},
+    "worker": {"password": "1111", "role": "worker"}
+}
+
 # ================= HOME =================
 
 @app.route("/")
 def home():
     return render_template("index.html")
+
+# ================= LOGIN =================
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+
+    username = data["username"]
+    password = data["password"]
+
+    if username in users and users[username]["password"] == password:
+        return jsonify({
+            "status": "ok",
+            "role": users[username]["role"]
+        })
+
+    return jsonify({"status": "fail"})
 
 # ================= EMPLOYEES =================
 
@@ -69,7 +91,6 @@ def employees():
 
 @app.route("/add_employee", methods=["POST"])
 def add_employee():
-
     data = request.json
 
     conn = get_conn()
@@ -89,9 +110,9 @@ def add_employee():
 
 @app.route("/clock_in", methods=["POST"])
 def clock_in():
-
     data = request.json
     name = data["name"]
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_conn()
@@ -111,7 +132,6 @@ def clock_in():
 
 @app.route("/clock_out", methods=["POST"])
 def clock_out():
-
     name = request.json["name"]
 
     conn = get_conn()
@@ -127,6 +147,83 @@ def clock_out():
     conn.close()
 
     return jsonify({"status": "ok"})
+
+# ================= SALARY ALL =================
+
+@app.route("/salary_all")
+def salary_all():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM employees")
+    employees = cur.fetchall()
+
+    result = []
+
+    for e in employees:
+        name = e[1]
+        rate = e[2]
+        type_ = e[3]
+
+        cur.execute("""
+            SELECT clock_in, clock_out FROM attendance
+            WHERE employee_name=%s
+        """, (name,))
+
+        records = cur.fetchall()
+
+        hours = 0
+        days = 0
+
+        for r in records:
+            if r[0] and r[1]:
+                t1 = datetime.strptime(r[0], "%Y-%m-%d %H:%M:%S")
+                t2 = datetime.strptime(r[1], "%Y-%m-%d %H:%M:%S")
+
+                hours += (t2 - t1).total_seconds() / 3600
+                days += 1
+
+        if type_ == "יומי":
+            salary = days * rate
+        else:
+            salary = hours * rate
+
+        result.append({
+            "name": name,
+            "hours": round(hours, 2),
+            "days": days,
+            "salary": round(salary, 2)
+        })
+
+    conn.close()
+    return jsonify(result)
+
+# ================= DASHBOARD =================
+
+@app.route("/dashboard")
+def dashboard():
+
+    today = str(date.today())
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT COUNT(*) FROM attendance
+        WHERE work_date=%s AND clock_out=''
+    """, (today,))
+    active = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM employees")
+    total = cur.fetchone()[0]
+
+    conn.close()
+
+    return jsonify({
+        "active": active,
+        "total_employees": total
+    })
 
 # ================= RUN =================
 

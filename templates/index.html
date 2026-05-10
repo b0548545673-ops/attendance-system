@@ -8,14 +8,14 @@
         body {
             font-family: Arial;
             direction: rtl;
-            padding: 20px;
             background: #f5f5f5;
+            padding: 20px;
         }
 
         .box {
             background: white;
             padding: 15px;
-            margin-bottom: 15px;
+            margin: 10px 0;
             border-radius: 10px;
         }
 
@@ -46,7 +46,7 @@
 
 <h1>מערכת נוכחות בענן</h1>
 
-<!-- ================= LOGIN ================= -->
+<!-- LOGIN -->
 <div class="box">
     <h2>התחברות</h2>
 
@@ -56,11 +56,11 @@
     <button onclick="login()">כניסה</button>
 </div>
 
-<!-- ================= ADD EMPLOYEE ================= -->
+<!-- ADD EMPLOYEE -->
 <div class="box">
     <h2>הוספת עובד</h2>
 
-    <input id="name" placeholder="שם עובד">
+    <input id="name" placeholder="שם">
     <input id="salary" placeholder="שכר">
 
     <select id="type">
@@ -71,11 +71,11 @@
     <button onclick="addEmployee()">הוסף</button>
 </div>
 
-<!-- ================= EMPLOYEES TABLE ================= -->
+<!-- EMPLOYEES -->
 <div class="box">
     <h2>עובדים</h2>
 
-    <button onclick="loadEmployees()">רענן טבלה</button>
+    <button onclick="loadEmployees()">רענן</button>
 
     <table>
         <thead>
@@ -91,9 +91,42 @@
     </table>
 </div>
 
+<!-- SALARY -->
+<div class="box">
+    <h2>דוח שכר</h2>
+
+    <button onclick="loadSalary()">טען דוח</button>
+
+    <table>
+        <thead>
+        <tr>
+            <th>שם</th>
+            <th>שעות</th>
+            <th>ימים</th>
+            <th>שכר</th>
+        </tr>
+        </thead>
+
+        <tbody id="salaryTable"></tbody>
+    </table>
+</div>
+
+<!-- DASHBOARD -->
+<div class="box">
+    <h2>דשבורד</h2>
+
+    <button onclick="loadDashboard()">רענן</button>
+
+    <div id="dash"></div>
+</div>
+
 <script>
 
+let currentUserRole = "";
+let currentUserName = "";
+
 async function login() {
+
     const res = await fetch("/login", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -106,13 +139,26 @@ async function login() {
     const data = await res.json();
 
     if (data.status === "ok") {
-        alert("התחברת בהצלחה");
+        currentUserRole = data.role;
+        currentUserName = document.getElementById("user").value;
+        alert("התחברת כ: " + currentUserRole);
     } else {
-        alert("שם משתמש או סיסמה שגויים");
+        alert("שגיאה");
     }
 }
 
+function onlyAdmin() {
+    if (currentUserRole !== "admin") {
+        alert("רק מנהל");
+        return false;
+    }
+    return true;
+}
+
 async function addEmployee() {
+
+    if (!onlyAdmin()) return;
+
     await fetch("/add_employee", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -127,6 +173,7 @@ async function addEmployee() {
 }
 
 async function loadEmployees() {
+
     const res = await fetch("/employees");
     const data = await res.json();
 
@@ -163,6 +210,37 @@ async function clockOut(name) {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({name})
     });
+}
+
+async function loadSalary() {
+
+    const res = await fetch("/salary_all");
+    const data = await res.json();
+
+    let html = "";
+
+    data.forEach(e => {
+        html += `
+        <tr>
+            <td>${e.name}</td>
+            <td>${e.hours}</td>
+            <td>${e.days}</td>
+            <td>₪${e.salary}</td>
+        </tr>
+        `;
+    });
+
+    document.getElementById("salaryTable").innerHTML = html;
+}
+
+async function loadDashboard() {
+
+    const res = await fetch("/dashboard");
+    const data = await res.json();
+
+    document.getElementById("dash").innerHTML =
+        "עובדים פעילים: " + data.active +
+        "<br>סה״כ עובדים: " + data.total_employees;
 }
 
 loadEmployees();
