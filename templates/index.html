@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<title>מערכת נוכחות</title>
+</head>
+
+<body>
+
+<h2>התחברות</h2>
+<input id="u">
+<input id="p" type="password">
+<button onclick="login()">כניסה</button>
+
+<hr>
+
+<h2>עובדים</h2>
+<input id="name">
+<input id="salary">
+<select id="type">
+<option>יומי</option>
+<option>שעתי</option>
+</select>
+<button onclick="add()">הוסף</button>
+
+<br><br>
+
+<button onclick="load()">רענן עובדים</button>
+<button onclick="salary()">דוח שכר</button>
+<button onclick="pdf()">PDF</button>
+
+<div id="out"></div>
+
+<script>
+
+let role="";
+
+async function login(){
+const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({user:u.value,pass:p.value})});
+
+const d=await r.json();
+role=d.role;
+alert(role);
+}
+
+async function add(){
+await fetch("/add_emp",{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({name:name.value,salary:salary.value,type:type.value})});
+}
+
+async function load(){
+const r=await fetch("/employees");
+out.innerHTML=JSON.stringify(await r.json());
+}
+
+async function salary(){
+const r=await fetch("/salary_week");
+out.innerHTML=JSON.stringify(await r.json());
+}
+
+function pdf(){
+window.location="/pdf";
+}
+
+</script>
+
+</body>
+</html>
