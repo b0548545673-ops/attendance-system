@@ -3,11 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <title>התחברות</title>
+
 <style>
-body{font-family:Arial;background:#0f172a;color:white;display:flex;justify-content:center;align-items:center;height:100vh}
-.box{background:#1e293b;padding:25px;border-radius:12px;width:300px}
-input,button{width:100%;padding:10px;margin-top:10px;border-radius:8px;border:none}
-button{background:#22c55e;color:white;cursor:pointer}
+body{
+font-family:Arial;
+background:#0f172a;
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh
+}
+
+.box{
+background:#1e293b;
+padding:25px;
+border-radius:12px;
+width:300px
+}
+
+input,button{
+width:100%;
+padding:10px;
+margin-top:10px;
+border-radius:8px;
+border:none
+}
+
+button{
+background:#22c55e;
+color:white;
+cursor:pointer
+}
+
+#error{
+color:#f87171;
+margin-top:10px;
+}
 </style>
 </head>
 
@@ -16,28 +48,46 @@ button{background:#22c55e;color:white;cursor:pointer}
 <div class="box">
 <h2>מערכת נוכחות</h2>
 
-<input id="u" placeholder="שם משתמש">
-<input id="p" type="password" placeholder="סיסמה">
+<input id="user" placeholder="שם משתמש">
+<input id="pass" type="password" placeholder="סיסמה">
 
 <button onclick="login()">כניסה</button>
 
-<p id="msg"></p>
+<p id="error"></p>
 </div>
 
 <script>
-async function login(){
-let r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({user:u.value,pass:p.value})});
 
-let d=await r.json();
+async function login(){
+
+try{
+let r = await fetch("/login",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+user: document.getElementById("user").value,
+pass: document.getElementById("pass").value
+})
+});
+
+let d = await r.json();
 
 if(d.ok){
-if(d.role=="admin") location="/admin";
-else location="/dashboard";
+if(d.role === "admin"){
+location.href = "/admin";
 }else{
-msg.innerText="שגיאה בהתחברות";
+location.href = "/dashboard";
 }
+}else{
+document.getElementById("error").innerText = "שם משתמש או סיסמה שגויים";
 }
+
+}catch(e){
+document.getElementById("error").innerText = "שגיאת שרת - נסה שוב";
+}
+
+}
+
 </script>
 
 </body>

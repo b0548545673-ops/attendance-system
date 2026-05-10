@@ -44,37 +44,49 @@ button{cursor:pointer}
 <script>
 
 async function add(){
-await fetch("/add",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({name:name.value,salary:salary.value,type:type.value})});
+await fetch("/add",{method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+name:name.value,
+salary:salary.value,
+type:type.value
+})});
+
 load();
 }
 
 async function load(){
-let r=await fetch("/employees");
-let d=await r.json();
+let r = await fetch("/employees");
+let d = await r.json();
 
 t.innerHTML = `
-<tr><th>שם</th><th>שכר</th><th>סוג</th><th>מחיקה</th></tr>
+<tr>
+<th>שם</th>
+<th>שכר</th>
+<th>סוג</th>
+<th>מחיקה</th>
+</tr>
 ` + d.map(x=>`
 <tr>
-<td>${x[1]}</td>
-<td>${x[2]}</td>
-<td>${x[3]}</td>
-<td><button onclick="del('${x[1]}')">מחק</button></td>
+<td>${x.name}</td>
+<td>${x.salary}</td>
+<td>${x.type}</td>
+<td><button onclick="del('${x.name}')">מחק</button></td>
 </tr>
 `).join("");
 }
 
 async function del(name){
-await fetch("/delete",{method:"POST",headers:{"Content-Type":"application/json"},
+await fetch("/delete",{method:"POST",
+headers:{"Content-Type":"application/json"},
 body:JSON.stringify({name})});
 load();
 }
 
 async function salary(){
-let r=await fetch("/salary");
-let d=await r.json();
-s.innerText=JSON.stringify(d,null,2);
+let r = await fetch("/salary");
+let d = await r.json();
+s.innerText = JSON.stringify(d,null,2);
 }
 
 function pdf(){
