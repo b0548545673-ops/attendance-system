@@ -2,6 +2,7 @@ import psycopg2
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime, date
+from flask import render_template
 
 app = Flask(__name__)
 CORS(app)
@@ -49,7 +50,7 @@ init_db()
 
 @app.route("/")
 def home():
-    return "השרת עובד ✔ מערכת נוכחות פעילה בענן"
+    return render_template("index.html")
 
 # ================= EMPLOYEES =================
 
@@ -89,7 +90,8 @@ def add_employee():
 @app.route("/clock_in", methods=["POST"])
 def clock_in():
 
-    name = data = request.json["name"]
+    data = request.json
+    name = data["name"]
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_conn()

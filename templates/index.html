@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>מערכת נוכחות</title>
+</head>
+<body>
+    <h1>מערכת נוכחות בענן</h1>
+
+    <input id="name" placeholder="שם עובד">
+    <button onclick="addEmployee()">הוסף עובד</button>
+
+    <button onclick="loadEmployees()">טען עובדים</button>
+
+    <div id="list"></div>
+
+    <script>
+        async function addEmployee() {
+            const name = document.getElementById("name").value;
+
+            await fetch("/add_employee", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    name: name,
+                    salary: 100,
+                    salary_type: "יומי"
+                })
+            });
+
+            alert("נוסף!");
+        }
+
+        async function loadEmployees() {
+            const res = await fetch("/employees");
+            const data = await res.json();
+
+            document.getElementById("list").innerHTML =
+                JSON.stringify(data);
+        }
+    </script>
+</body>
+</html>
