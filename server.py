@@ -8,7 +8,9 @@ CORS(app)
 
 # ================= DATABASE =================
 
-DATABASE_URL = "postgresql://attendance_db_oezp_user:qUOP3sdOQES0hRuZZoFBluYOcb3Hi3lN@dpg-d809nl7lk1mc73d6n3h0-a.oregon-postgres.render.com/attendance_db_oezp"
+import os
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
