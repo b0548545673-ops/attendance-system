@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<title>Login</title>
+
+<style>
+body {
+    background: linear-gradient(120deg,#667eea,#764ba2);
+    font-family: Arial;
+    text-align: center;
+    color: white;
+}
+
+.box {
+    background: white;
+    color: black;
+    width: 300px;
+    margin: 120px auto;
+    padding: 20px;
+    border-radius: 15px;
+}
+
+input {
+    width: 90%;
+    padding: 10px;
+    margin: 5px;
+}
+
+button {
+    width: 95%;
+    padding: 10px;
+    background: #667eea;
+    border: none;
+    color: white;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>כניסה למערכת</h2>
+
+    <input id="u" placeholder="שם משתמש">
+    <input id="p" type="password" placeholder="סיסמה">
+
+    <button onclick="login()">כניסה</button>
+</div>
+
+<script>
+async function login() {
+    const res = await fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            username: document.getElementById("u").value,
+            password: document.getElementById("p").value
+        })
+    });
+
+    const data = await res.json();
+
+    if(data.status === "ok") {
+        window.location.href = "/dashboard";
+    } else {
+        alert("שגיאה");
+    }
+}
+</script>
+
+</body>
+</html>

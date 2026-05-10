@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<title>Admin</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #fff8e1;
+}
+
+.box {
+    background: white;
+    margin: 20px;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+input, button {
+    padding: 8px;
+    margin: 5px;
+}
+button {
+    background: orange;
+    border: none;
+    color: white;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>הוספת עובד</h2>
+
+    <input id="name" placeholder="שם">
+    <input id="salary" placeholder="שכר">
+
+    <select id="type">
+        <option>יומי</option>
+        <option>שעתי</option>
+    </select>
+
+    <button onclick="add()">הוסף</button>
+</div>
+
+<script>
+async function add() {
+    await fetch("/add_employee", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            name: document.getElementById("name").value,
+            salary: document.getElementById("salary").value,
+            salary_type: document.getElementById("type").value
+        })
+    });
+
+    alert("נוסף");
+}
+</script>
+
+</body>
+</html>
